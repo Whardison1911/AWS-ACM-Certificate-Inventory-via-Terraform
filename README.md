@@ -1,128 +1,145 @@
-# AWS-ACM-Certificate-Inventory-via-Terraform
+Terraform ACM Inventory Repository
 
-nventory AWS Certificate Manager (ACM) certificates across regions and see when they expire—using pure Terraform.
-By default it scans the configured provider region; optionally it also scans us-east-1 (where CloudFront certs live).
+📋 Overview
+This educational repository provides Terraform configurations to inventory AWS Certificate Manager (ACM) SSL/TLS certificates in an AWS account/region. It reports expiration dates, whether certificates are PUBLIC vs PRIVATE, and whether they are AWS-provided vs customer-provided. It also highlights certificates expiring within 30 days so you can act before outages occur.
 
-What you get
+Key Features
 
-✅ List of all ACM certs (issued, pending, expired, etc.)
+🧾 Full Inventory: Lists all ACM certificates in-region with key attributes (domain(s), status, issuer, algorithms, usage).
+⏳ Expiry Awareness: Flags certificates expiring within 30 days and those already expired.
+🌍 Public vs Private: Classifies visiblity using ACM type (PRIVATE → private; otherwise public).
+🏷️ Provenance: Distinguishes AWS_PROVIDED (AMAZON_ISSUED/PRIVATE) vs CUSTOMER_PROVIDED (IMPORTED).
+⚙️ Simple Inputs: Minimal variables for region/profile and optional cross-account assume-role.
+🔁 Portable: Run per region; extendable to multi-region via provider aliases.
 
-📍 Region-aware (current provider region + optional us-east-1)
+🏗️ Repository Structure
+.
+├── acm_inventory.tf   # Data sources & outputs that build the certificate inventory
+├── providers.tf       # AWS provider config, tagging, (optional) assume-role
+└── variables.tf       # Inputs for region/profile/assume-role
 
-🧾 Structured output with domain, status, NotAfter (expiry), in-use resources, and more
+🚀 Quick Start
 
-🧰 No side effects — data-only (reads, no resource creation)
+Clone the repository:
 
-Requirements
-
-Terraform ≥ 1.5
-
-AWS Provider ≥ 5.0 (uses data.aws_acm_certificates)
-
-Files
-
-acm_inventory.tf – main Terraform file with inputs, data sources, and outputs
-
-Inputs
-Variable	Type	Default	Description
-region	string	—	Primary region to query (e.g., us-east-1)
-include_us_east_1	bool	true	Also inventory ACM in us-east-1 (recommended for CloudFront)
-
-The module defines an aws provider for your chosen region and an alias aws.use1 for us-east-1.
-
-Output
-
-acm_certs – a list of objects like:
-
-[
-  {
-    "arn": "arn:aws:acm:us-east-1:123456789012:certificate/abcd-...",
-    "region": "us-east-1",
-    "domain": "example.com",
-    "sans": ["www.example.com"],
-    "type": "AMAZON_ISSUED",
-    "status": "ISSUED",
-    "in_use_by": ["arn:aws:cloudfront::123456789012:distribution/EDFDVBD6EXAMPLE"],
-    "not_before": "2025-06-01T00:00:00Z",
-    "not_after":  "2026-05-31T23:59:59Z",
-    "renewal_eligibility": "ELIGIBLE",
-    "key_algorithm": "RSA-2048",
-    "signature_algorithm": "SHA256WITHRSA"
-  }
-]
+git clone <repository-url>
+cd terraform-acm-inventory
 
 
-Fields included: arn, region, domain, sans, type, status, in_use_by, not_before, not_after, renewal_eligibility, key_algorithm, signature_algorithm.
+Provide your configuration (create terraform.tfvars):
 
-Quick Start
-
-Create a working folder and save your file:
-
-mkdir acm-inventory && cd acm-inventory
-# save your acm_inventory.tf here
+region = "us-east-1"
+# profile = "my-aws-profile"                 # optional
+# assume_role_arn = "arn:aws:iam::123:role/OrgAuditRole"    # optional
+# assume_role_external_id = "my-external-id"               # optional
 
 
-Set variables (example terraform.tfvars):
-
-region            = "us-east-1"
-include_us_east_1 = true
-
-
-Run Terraform:
+Initialize and run:
 
 terraform init
-terraform apply -auto-approve
+terraform plan
+terraform apply
 
 
-View results:
+Show results:
 
-terraform output -json acm_certs | jq .
+# High-level summary (account, region, counts)
+terraform output acm_inventory_summary
 
-Helpful jq Examples
+# Full inventory (JSON map keyed by ARN)
+terraform output -json acm_certificate_inventory | jq
 
-Show domain & expiry (sorted soonest first):
+# Certificates expiring within 30 days
+terraform output -json acm_expiring_within_30_days | jq
 
-terraform output -json acm_certs \
-| jq -r '.[] | {domain, region, status, not_after} | @tsv' \
-| sort -k4
+# Simple breakdowns
+terraform output acm_public_vs_private_counts
+terraform output acm_aws_vs_customer_counts
 
+🔧 Understanding Variables
 
-Show certs expiring in the next 30 days:
+Defined in variables.tf:
 
-deadline=$(date -u -v+30d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "+30 days" +"%Y-%m-%dT%H:%M:%SZ")
-terraform output -json acm_certs \
-| jq --arg deadline "$deadline" '
-  .[] | select(.not_after <= $deadline) |
-  {domain, region, status, not_after}'
+region (string, required) – AWS region to inventory (ACM is regional).
 
+profile (string, optional) – Named AWS CLI profile for auth.
 
-Only show certs currently in use:
+assume_role_arn (string, optional) – Cross-account role ARN (leave blank if not needed).
 
-terraform output -json acm_certs \
-| jq '.[] | select((.in_use_by|length) > 0) | {domain, region, in_use_by}'
+assume_role_external_id (string, optional) – External ID when assuming the role.
 
-Notes & Tips
+These are consumed by providers.tf to configure the AWS provider and (optionally) assume a role.
 
-CloudFront certificates are always in us-east-1; keep include_us_east_1 = true unless you know you don’t use CloudFront.
+📊 Inventory Details
 
-This uses data sources only — it won’t create/modify any resources.
+The inventory normalizes each ACM certificate into a record with fields like:
 
-If you have many accounts/regions, run this in a pipeline across each (e.g., via multiple workspaces, or a wrapper script that sets region and assumes roles).
+arn, domain_name, subject_alt_names, status
 
-For organizations: add tags, account id, or workspace to the output by extending the locals block.
+not_before, not_after (expiration)
 
-Troubleshooting
+in_use_by (ELB, CloudFront, etc.)
 
-data.aws_acm_certificates not found / schema errors: upgrade to AWS Provider ≥ 5.0.
+issuer, key_algorithm, acm_type (AMAZON_ISSUED | IMPORTED | PRIVATE)
 
-Empty results: confirm you have ACM certs in that region and the credentials/role can read ACM.
+visibility (PUBLIC | PRIVATE)
 
-JSON tooling: Install jq for pretty-printing and filtering.
+source (AWS_PROVIDED | CUSTOMER_PROVIDED)
 
-License / Ownership
+expiring_in_30d, is_expired (booleans)
 
-Owner: ZTMF (CMS)
+Outputs
 
-Purpose: Inventory ACM certificates (domain, status, expiration) across regions.
+acm_inventory_summary – Account/Region/Counts overview
 
-Last updated: 2025-09-19
+acm_certificate_inventory – Full inventory (map keyed by ARN)
+
+acm_expiring_within_30_days – List filtered to upcoming expirations
+
+acm_public_vs_private_counts – Count by visibility
+
+acm_aws_vs_customer_counts – Count by provenance
+
+🧭 Multi-Region (Optional)
+
+ACM is regional. To scan multiple regions:
+
+Add provider aliases (e.g., provider "aws" { alias = "use1" ... }, alias = "usw2" ... }).
+
+Duplicate the data sources per alias (provider = aws.use1, provider = aws.usw2).
+
+Merge results into combined locals/outputs.
+
+I can generate a ready-to-run multi-region variant if you tell me the regions.
+
+📦 Prerequisites
+
+Terraform: ≥ 1.5
+
+AWS Provider: ≥ 5.0
+
+AWS credentials with acm:ListCertificates and acm:DescribeCertificate (and STS if assuming role).
+
+🔒 Security Considerations
+
+Least privilege: Grant only read permissions required for ACM listing/describe.
+
+Cross-account: If assuming roles, scope trust and permissions appropriately.
+
+Secrets: Use AWS SSO/STS or a secure credential helper for profiles; don’t hardcode PATs/keys in code.
+
+🤝 Contributing
+
+This is an educational repo to demonstrate ACM inventory patterns with Terraform. Feel free to:
+
+Fork and tailor to your org (e.g., multi-region, export to CSV via external or local_file).
+
+Open issues/PRs for improvements (filters, tagging, reporting integrations).
+
+📄 License
+
+Provided for educational purposes. Validate and test before using in production.
+
+🏢 Owner
+
+ZTMF (CMS) — Certificate Visibility & Lifecycle (Terraform + ACM)
