@@ -12,11 +12,12 @@ This educational repository provides Terraform configurations to **inventory AWS
 - 🔁 **Portable:** Run per region; extendable to multi-region via provider aliases.
 
 ## 🏗️ Repository Structure
-.
+
+```
 ├── acm_inventory.tf # Data sources & outputs that build the certificate inventory
 ├── providers.tf # AWS provider config, tagging, (optional) assume-role
 └── variables.tf # Inputs for region/profile/assume-role
-
+```
 
 ## 🚀 Quick Start
 
