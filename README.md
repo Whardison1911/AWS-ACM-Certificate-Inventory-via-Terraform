@@ -24,7 +24,7 @@ This educational repository provides Terraform configurations to **inventory AWS
 1. **Clone the repository**:
 
 ```
-git clone <repository-url>
+git clone https://github.com/Whardison1911/AWS-ACM-Certificate-Inventory-via-Terraform.git
 cd terraform-acm-inventory
 ```
 
