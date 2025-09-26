@@ -35,7 +35,7 @@ data "aws_acm_certificate" "certificates" {
 locals {
   # Note: aws_acm_certificate data source only provides limited attributes
   # For detailed certificate info (expiration dates, etc.), use AWS CLI or Lambda
-  
+
   acm_inventory = {
     for domain, cert in data.aws_acm_certificate.certificates :
     domain => {
@@ -52,7 +52,7 @@ locals {
   }
 
   acm_inventory_list = [for v in local.acm_inventory : v]
-  
+
   # Since we don't have expiration data, we can't determine expiring certificates
   acm_expiring_soon = []
 }
@@ -60,11 +60,11 @@ locals {
 output "acm_inventory_summary" {
   description = "Context for this inventory run"
   value = {
-    account_id              = data.aws_caller_identity.this.account_id
-    region                  = data.aws_region.this.name
-    total                   = length(local.acm_inventory)
-    note                   = "Limited data available from aws_acm_certificate data source"
-    recommendation         = "Use AWS CLI or Lambda for comprehensive ACM certificate inventory"
+    account_id     = data.aws_caller_identity.this.account_id
+    region         = data.aws_region.this.name
+    total          = length(local.acm_inventory)
+    note           = "Limited data available from aws_acm_certificate data source"
+    recommendation = "Use AWS CLI or Lambda for comprehensive ACM certificate inventory"
   }
 }
 

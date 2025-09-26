@@ -41,4 +41,62 @@ resource "aws_lambda_function" "acm_reporter" {
   depends_on = [aws_cloudwatch_log_group.acm_reporter]
 }
 
+# API Gateway for manual triggers
+resource "aws_api_gateway_rest_api" "acm_reporter" {
+  count       = var.enable_api_gateway ? 1 : 0
+  name        = "acm-inventory-reporter-api"
+  description = "API Gateway for manual ACM certificate inventory triggers"
+}
+
+resource "aws_api_gateway_resource" "trigger" {
+  count       = var.enable_api_gateway ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.acm_reporter[0].id
+  parent_id   = aws_api_gateway_rest_api.acm_reporter[0].root_resource_id
+  path_part   = "trigger"
+}
+
+resource "aws_api_gateway_method" "post" {
+  count         = var.enable_api_gateway ? 1 : 0
+  rest_api_id   = aws_api_gateway_rest_api.acm_reporter[0].id
+  resource_id   = aws_api_gateway_resource.trigger[0].id
+  http_method   = "POST"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "lambda" {
+  count       = var.enable_api_gateway ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.acm_reporter[0].id
+  resource_id = aws_api_gateway_resource.trigger[0].id
+  http_method = aws_api_gateway_method.post[0].http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = aws_lambda_function.acm_reporter.invoke_arn
+}
+
+resource "aws_lambda_permission" "api_gateway" {
+  count         = var.enable_api_gateway ? 1 : 0
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.acm_reporter.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.acm_reporter[0].execution_arn}/*/*"
+}
+
+resource "aws_api_gateway_deployment" "acm_reporter" {
+  count = var.enable_api_gateway ? 1 : 0
+  depends_on = [
+    aws_api_gateway_integration.lambda,
+  ]
+
+  rest_api_id = aws_api_gateway_rest_api.acm_reporter[0].id
+}
+
+resource "aws_api_gateway_stage" "acm_reporter" {
+  count         = var.enable_api_gateway ? 1 : 0
+  deployment_id = aws_api_gateway_deployment.acm_reporter[0].id
+  rest_api_id   = aws_api_gateway_rest_api.acm_reporter[0].id
+  stage_name    = "prod"
+}
+
 

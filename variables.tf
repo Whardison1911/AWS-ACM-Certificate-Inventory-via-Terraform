@@ -82,3 +82,9 @@ variable "lambda_memory_mb" {
   default     = 256
   description = "Lambda memory in MB."
 }
+
+variable "enable_api_gateway" {
+  type        = bool
+  default     = true
+  description = "Whether to create API Gateway for manual triggers."
+}

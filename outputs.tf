@@ -18,4 +18,9 @@ output "acm_reporter_sns_topic_arn" {
   value       = aws_sns_topic.acm_reporter.arn
 }
 
+output "acm_reporter_api_url" {
+  description = "API Gateway URL for manual triggers"
+  value       = var.enable_api_gateway ? "${aws_api_gateway_stage.acm_reporter[0].invoke_url}/trigger" : null
+}
+
 
