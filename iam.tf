@@ -5,7 +5,7 @@
 
 data "aws_iam_policy_document" "lambda_assume_role" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
@@ -21,8 +21,8 @@ resource "aws_iam_role" "acm_reporter" {
 
 data "aws_iam_policy_document" "acm_reporter" {
   statement {
-    sid     = "Logs"
-    effect  = "Allow"
+    sid    = "Logs"
+    effect = "Allow"
     actions = [
       "logs:CreateLogGroup",
       "logs:CreateLogStream",
@@ -34,8 +34,8 @@ data "aws_iam_policy_document" "acm_reporter" {
   }
 
   statement {
-    sid     = "ReadACM"
-    effect  = "Allow"
+    sid    = "ReadACM"
+    effect = "Allow"
     actions = [
       "acm:ListCertificates",
       "acm:DescribeCertificate",
@@ -45,8 +45,8 @@ data "aws_iam_policy_document" "acm_reporter" {
   }
 
   statement {
-    sid     = "WriteS3"
-    effect  = "Allow"
+    sid    = "WriteS3"
+    effect = "Allow"
     actions = [
       "s3:PutObject",
       "s3:PutObjectAcl",
@@ -60,8 +60,8 @@ data "aws_iam_policy_document" "acm_reporter" {
   }
 
   statement {
-    sid     = "PublishSNS"
-    effect  = "Allow"
+    sid    = "PublishSNS"
+    effect = "Allow"
     actions = [
       "sns:Publish"
     ]

@@ -17,80 +17,66 @@
 data "aws_caller_identity" "this" {}
 data "aws_region" "this" {}
 
-data "aws_acm_certificates" "all" {
-  types = ["AMAZON_ISSUED", "IMPORTED", "PRIVATE"]
-  # statuses = ["ISSUED"]
-}
+# Note: aws_acm_certificates data source doesn't exist in AWS provider
+# This is a placeholder - you'll need to specify actual certificate domains
+# or use AWS CLI/Lambda to inventory certificates
 
-data "aws_acm_certificate" "details" {
-  for_each = toset(data.aws_acm_certificates.all.arns)
-  arn      = each.value
+# Multiple certificate domains to inventory
+data "aws_acm_certificate" "certificates" {
+  for_each = toset([
+    "dev.cztf.cloud.cms.gov",
+    "dev.ztmf.cms.gov"
+  ])
+  domain      = each.value
+  statuses    = ["ISSUED"]
+  most_recent = true
 }
 
 locals {
-  now        = timestamp()
-  in_30_days = timeadd(timestamp(), "720h") # 30 days
-
+  # Note: aws_acm_certificate data source only provides limited attributes
+  # For detailed certificate info (expiration dates, etc.), use AWS CLI or Lambda
+  
   acm_inventory = {
-    for arn, cert in data.aws_acm_certificate.details :
-    arn => {
-      arn               = arn
-      domain_name       = cert.domain_name
-      subject_alt_names = cert.subject_alternative_names
-      status            = cert.status
-      not_before        = cert.not_before
-      not_after         = cert.not_after
-      in_use_by         = cert.in_use_by
-      issuer            = try(cert.issuer, null)
-      key_algorithm     = try(cert.key_algorithm, null)
-      acm_type          = cert.type
-      visibility        = cert.type == "PRIVATE" ? "PRIVATE" : "PUBLIC"
-      source            = cert.type == "IMPORTED" ? "CUSTOMER_PROVIDED" : "AWS_PROVIDED"
-      expiring_in_30d   = can(timecmp(cert.not_after, local.in_30_days)) ? (timecmp(cert.not_after, local.in_30_days) <= 0) : false
-      is_expired        = can(timecmp(cert.not_after, local.now)) ? (timecmp(cert.not_after, local.now) < 0) : false
+    for domain, cert in data.aws_acm_certificate.certificates :
+    domain => {
+      arn    = cert.arn
+      domain = cert.domain
+      # Note: Limited attributes available from aws_acm_certificate data source
+      # Available: arn, domain, id, key_types, most_recent, status, statuses, tags, types
+      # 
+      # For comprehensive ACM inventory with expiration dates, etc., consider:
+      # 1. AWS CLI: aws acm list-certificates --region us-east-1
+      # 2. Lambda function to query ACM API directly  
+      # 3. External script to populate Terraform variables
     }
   }
 
   acm_inventory_list = [for v in local.acm_inventory : v]
-
-  acm_expiring_soon = [
-    for v in local.acm_inventory_list : v
-    if v.expiring_in_30d && !v.is_expired
-  ]
+  
+  # Since we don't have expiration data, we can't determine expiring certificates
+  acm_expiring_soon = []
 }
 
 output "acm_inventory_summary" {
   description = "Context for this inventory run"
   value = {
-    account_id = data.aws_caller_identity.this.account_id
-    region     = data.aws_region.this.name
-    total      = length(local.acm_inventory)
-    expiring_within_30_days = length(local.acm_expiring_soon)
+    account_id              = data.aws_caller_identity.this.account_id
+    region                  = data.aws_region.this.name
+    total                   = length(local.acm_inventory)
+    note                   = "Limited data available from aws_acm_certificate data source"
+    recommendation         = "Use AWS CLI or Lambda for comprehensive ACM certificate inventory"
   }
 }
 
 output "acm_certificate_inventory" {
-  description = "All ACM certs with details (keyed by ARN)"
+  description = "Basic ACM cert info (ARN and domain only)"
   value       = local.acm_inventory
 }
 
 output "acm_expiring_within_30_days" {
-  description = "ACM certs expiring within 30 days (list)"
+  description = "ACM certs expiring within 30 days (not available with data source)"
   value       = local.acm_expiring_soon
 }
 
-output "acm_public_vs_private_counts" {
-  description = "Counts of PUBLIC vs PRIVATE"
-  value = {
-    PUBLIC  = length([for v in local.acm_inventory_list : 1 if v.visibility == "PUBLIC"])
-    PRIVATE = length([for v in local.acm_inventory_list : 1 if v.visibility == "PRIVATE"])
-  }
-}
-
-output "acm_aws_vs_customer_counts" {
-  description = "Counts of AWS_PROVIDED vs CUSTOMER_PROVIDED"
-  value = {
-    AWS_PROVIDED      = length([for v in local.acm_inventory_list : 1 if v.source == "AWS_PROVIDED"])
-    CUSTOMER_PROVIDED = length([for v in local.acm_inventory_list : 1 if v.source == "CUSTOMER_PROVIDED"])
-  }
-}
+# Note: Detailed analysis outputs removed since aws_acm_certificate data source
+# doesn't provide visibility, source, or expiration information

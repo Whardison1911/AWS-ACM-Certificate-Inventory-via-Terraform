@@ -20,7 +20,7 @@ def _isoformat(dt_str: str) -> str:
 def _list_all_certificates(acm_client):
     paginator = acm_client.get_paginator("list_certificates")
     certs = []
-    for page in paginator.paginate(CertificateStatuses=["PENDING_VALIDATION","ISSUED","INACTIVE","EXPIRED","VALIDATION_TIMED_OUT","REVOKED","FAILED","NOT_IMPORTED"], Includes={"extendedKeyUsage": [], "keyTypes": [], "keyAlgorithms": []}):
+    for page in paginator.paginate(CertificateStatuses=["PENDING_VALIDATION","ISSUED","INACTIVE","EXPIRED","VALIDATION_TIMED_OUT","REVOKED","FAILED"], Includes={"extendedKeyUsage": [], "keyTypes": []}):
         certs.extend(page.get("CertificateSummaryList", []))
     return certs
 

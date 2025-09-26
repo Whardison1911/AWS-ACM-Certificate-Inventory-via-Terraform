@@ -25,9 +25,6 @@ terraform {
   }
 }
 
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
-
 provider "aws" {
   region  = var.region
   profile = var.profile != "" ? var.profile : null
@@ -46,7 +43,9 @@ provider "aws" {
       ManagedBy = "Terraform"
       Project   = "ACM-Inventory"
       Region    = var.region
-      AccountId = data.aws_caller_identity.current.account_id
     }
   }
 }
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
